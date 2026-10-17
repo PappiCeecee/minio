@@ -42,7 +42,383 @@
         .work-tile .art { position: absolute; inset: 0; transition: transform .5s ease; }
         .work-tile:hover .art { transform: scale(1.06); }
     </style>
-    <link rel="stylesheet" href="roasod-ui.css">
+    <style>
+/* ROASOD UI effects pack */
+/* ROASOD UI effects — loaded after each page's own <style> so these layer on top. */
+
+@property --beam-angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+}
+
+:root {
+    --ro-accent: 59, 130, 246;
+    --ro-glow: 147, 197, 253;
+    --ro-prompt: #60a5fa;
+    --ro-on: #2563eb;
+    --ro-pop: 8, 18, 44;
+}
+
+/* ---------- 1. Depth stacking & specular highlights ---------- */
+.glass-card,
+.glass-button {
+    background-image:
+        radial-gradient(120% 80% at 0% 0%, rgba(var(--ro-glow), 0.10), transparent 55%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 45%);
+    box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.15),
+        inset 0 -1px 0 0 rgba(0, 0, 0, 0.25),
+        0 18px 40px -20px rgba(0, 0, 0, 0.65);
+}
+.glass-button:hover {
+    box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.25),
+        inset 0 -1px 0 0 rgba(0, 0, 0, 0.25),
+        0 14px 30px -12px rgba(var(--ro-accent), 0.45);
+}
+
+/* ---------- 2. Cursor-tracking border glow ---------- */
+.glass-card::before,
+.tilt::before,
+.contact-line::before,
+.beam-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    pointer-events: none;
+    z-index: 1;
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+.glass-card::before,
+.tilt::before,
+.contact-line::before {
+    background: radial-gradient(
+        240px circle at var(--mx, 50%) var(--my, 50%),
+        rgba(var(--ro-glow), 0.95),
+        rgba(var(--ro-accent), 0.35) 40%,
+        transparent 70%
+    );
+    opacity: 0;
+    transition: opacity 0.35s ease;
+}
+.glass-card.glow-near::before,
+.tilt.glow-near::before,
+.contact-line.glow-near::before { opacity: 1; }
+
+/* Soft inner light that follows the cursor too */
+.glass-card.glow-near {
+    background-image:
+        radial-gradient(320px circle at var(--mx, 50%) var(--my, 50%), rgba(var(--ro-accent), 0.10), transparent 70%),
+        radial-gradient(120% 80% at 0% 0%, rgba(var(--ro-glow), 0.10), transparent 55%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 45%);
+}
+
+/* ---------- 3. Beam borders (rotating conic highlight) ---------- */
+.beam-border { position: relative; }
+.beam-border::before {
+    background: conic-gradient(
+        from var(--beam-angle),
+        transparent 0deg,
+        transparent 250deg,
+        rgba(var(--ro-glow), 0.9) 320deg,
+        #ffffff 340deg,
+        transparent 360deg
+    );
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    animation: beam-spin 3.2s linear infinite;
+}
+.beam-border:hover::before,
+.beam-border:focus-visible::before,
+.beam-border.beam-on::before { opacity: 1; }
+@keyframes beam-spin { to { --beam-angle: 360deg; } }
+
+/* Shimmer sweep across key buttons */
+.beam-border:not(.btn)::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.18) 50%, transparent 65%);
+    background-size: 250% 100%;
+    background-position: 150% 0;
+    transition: background-position 0.9s ease;
+}
+.beam-border:not(.btn):hover::after { background-position: -50% 0; }
+
+/* Page-entrance beam on hero buttons */
+.beam-border.beam-intro::before { opacity: 1; animation: beam-spin 3.2s linear 2, beam-fade 6.4s ease forwards; }
+@keyframes beam-fade { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ---------- 4. SVG film grain ---------- */
+body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    pointer-events: none;
+    opacity: 0.045;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n' x='0' y='0'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    background-size: 220px 220px;
+}
+
+/* ---------- 5. Bento grid ---------- */
+.bento-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-auto-rows: minmax(150px, auto);
+    gap: 1rem;
+}
+.bento-cell {
+    border-radius: 1.5rem;
+    padding: 1.5rem;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.bento-a { grid-column: span 4; grid-row: span 2; }
+.bento-b { grid-column: span 2; }
+.bento-c { grid-column: span 2; }
+.bento-d { grid-column: span 3; }
+.bento-e { grid-column: span 3; }
+@media (max-width: 900px) {
+    .bento-a, .bento-b, .bento-c, .bento-d, .bento-e { grid-column: span 6; grid-row: auto; }
+}
+.bento-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgb(var(--ro-accent));
+    margin-bottom: 0.5rem;
+}
+.bento-terminal {
+    flex: 1;
+    margin-top: 1rem;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 1rem;
+    padding: 1rem 1.1rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.8rem;
+    line-height: 1.7;
+    color: #c7d2fe;
+    min-height: 190px;
+    white-space: pre-wrap;
+}
+.bento-terminal .t-prompt { color: var(--ro-prompt); }
+.bento-terminal .t-ok { color: #4ade80; }
+.bento-terminal .t-dim { color: #6b7280; }
+.bento-cursor {
+    display: inline-block;
+    width: 0.5em;
+    height: 1em;
+    background: rgb(var(--ro-glow));
+    vertical-align: text-bottom;
+    animation: bento-blink 1s steps(2) infinite;
+}
+@keyframes bento-blink { 50% { opacity: 0; } }
+.bento-counter {
+    font-size: 2.6rem;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    background: linear-gradient(135deg, #ffffff, rgb(var(--ro-glow)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-variant-numeric: tabular-nums;
+}
+.bento-live-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #4ade80;
+    box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.6);
+    animation: bento-ping 1.8s infinite;
+    margin-right: 0.5rem;
+}
+@keyframes bento-ping {
+    0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.55); }
+    70% { box-shadow: 0 0 0 9px rgba(74, 222, 128, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+}
+.bento-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.55rem 0.75rem;
+    border-radius: 0.8rem;
+    background: rgba(255, 255, 255, 0.05);
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    user-select: none;
+}
+.bento-switch {
+    width: 38px;
+    height: 22px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.15);
+    position: relative;
+    transition: background 0.25s ease;
+    flex-shrink: 0;
+}
+.bento-switch::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: #fff;
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.bento-toggle-row[aria-checked='true'] .bento-switch { background: var(--ro-on); }
+.bento-toggle-row[aria-checked='true'] .bento-switch::after { transform: translateX(16px); }
+.bento-bars { display: flex; align-items: flex-end; gap: 6px; height: 64px; margin-top: auto; padding-top: 0.75rem; }
+.bento-bars span {
+    flex: 1;
+    border-radius: 6px 6px 2px 2px;
+    background: linear-gradient(180deg, var(--ro-prompt), rgba(var(--ro-accent), 0.25));
+    transition: height 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ---------- 6. Command palette ---------- */
+#ro-cmdk-hint {
+    position: fixed;
+    left: 1.25rem;
+    bottom: 1.25rem;
+    z-index: 55;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.8rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #e5e7eb;
+    cursor: pointer;
+}
+#ro-cmdk-hint kbd, #ro-cmdk-foot kbd {
+    font-family: inherit;
+    font-size: 0.68rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 0.35rem;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+}
+#ro-cmdk-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 14vh 1rem 1rem;
+    background: rgba(0, 6, 20, 0.6);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+#ro-cmdk-overlay.open { display: flex; animation: cmdk-fade 0.18s ease both; }
+@keyframes cmdk-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cmdk-pop { from { opacity: 0; transform: translateY(-10px) scale(0.98); } to { opacity: 1; transform: none; } }
+#ro-cmdk {
+    width: 100%;
+    max-width: 560px;
+    border-radius: 1.25rem;
+    overflow: hidden;
+    background: rgba(var(--ro-pop), 0.88);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 30px 80px -20px rgba(0, 0, 0, 0.8);
+    animation: cmdk-pop 0.28s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+#ro-cmdk-input {
+    font-family: inherit;
+    width: 100%;
+    padding: 1.1rem 1.25rem;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 1rem;
+    outline: none;
+}
+#ro-cmdk-list { max-height: 320px; overflow-y: auto; padding: 0.5rem; scrollbar-width: thin; }
+.ro-cmdk-group { font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase; color: #6b7280; padding: 0.6rem 0.75rem 0.3rem; }
+.ro-cmdk-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.65rem 0.75rem;
+    border-radius: 0.75rem;
+    font-size: 0.9rem;
+    color: #d1d5db;
+    cursor: pointer;
+}
+.ro-cmdk-item .hint { font-size: 0.72rem; color: #6b7280; }
+.ro-cmdk-item.active { background: rgba(var(--ro-accent), 0.22); color: #fff; }
+.ro-cmdk-item mark { background: transparent; color: rgb(var(--ro-glow)); font-weight: 700; }
+#ro-cmdk-empty { padding: 1.5rem; text-align: center; color: #6b7280; font-size: 0.9rem; }
+#ro-cmdk-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.6rem 1rem;
+    font-size: 0.72rem;
+    color: #6b7280;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+#ro-cmdk-sound { background: none; border: 0; color: inherit; cursor: pointer; font-size: 0.72rem; }
+#ro-cmdk-sound:hover { color: #fff; }
+@media (max-width: 640px) { #ro-cmdk-hint kbd { display: none; } }
+
+/* ---------- Accessibility ---------- */
+@media (prefers-reduced-motion: reduce) {
+    .beam-border::before { animation: none; }
+    .bento-cursor, .bento-live-dot { animation: none; }
+    #ro-cmdk, #ro-cmdk-overlay.open { animation: none; }
+}
+
+/* ---------- Monochrome theme (portfolio page: <body class="ro-mono">) ---------- */
+.ro-mono {
+    --ro-accent: 228, 228, 228;
+    --ro-glow: 255, 255, 255;
+    --ro-prompt: #e4e4e4;
+    --ro-on: #8c8c8c;
+    --ro-pop: 16, 16, 16;
+}
+/* .tilt keeps its own gradient background; add highlight via shadow only, and a springy return */
+.ro-mono .tilt {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+    transition: border-color .3s ease, box-shadow .4s ease, transform .45s cubic-bezier(.34, 1.4, .64, 1);
+}
+.ro-mono .tilt:hover { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 30px 60px rgba(0, 0, 0, 0.55); }
+.ro-mono .btn-ghost, .ro-mono .contact-line { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12); }
+.ro-mono #ro-cmdk-hint {
+    background: rgba(20, 20, 20, 0.75);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--line-hi);
+    font-family: 'Inter', sans-serif;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 14px 30px rgba(0, 0, 0, 0.5);
+}
+.ro-mono #ro-cmdk-hint:hover { border-color: var(--text); }
+.ro-mono #ro-cmdk-overlay { background: rgba(0, 0, 0, 0.6); }
+.ro-mono .bento-label { font-family: 'JetBrains Mono', monospace; letter-spacing: .16em; color: var(--accent-2); }
+.ro-mono .bento-counter { font-family: 'Space Grotesk', sans-serif; }
+.ro-mono .bento-cell p:not(.bento-label) { font-size: 14px; }
+
+    </style>
 </head>
 <body class="bg-navy text-white selection:bg-blue-600 selection:text-white">
     <!-- Navigation -->
@@ -586,6 +962,406 @@
         { g: 'Actions', t: 'Send an email', u: 'mailto:rayceeblaccreedtshabalala@gmail.com' }
     ];
     </script>
-    <script src="roasod-ui.js" defer></script>
+    <script>
+/* ROASOD UI effects pack */
+/* ROASOD UI effects: cursor glow, beam borders, spring hover, bento widgets, command palette. */
+(function () {
+    'use strict';
+
+    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var finePointer = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+    function ready(fn) {
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);
+        else fn();
+    }
+
+    /* ---------- Sound (tiny WebAudio ticks, mutable, remembered) ---------- */
+    var audioCtx = null;
+    var soundOn = true;
+    try { soundOn = localStorage.getItem('roasod_sound') !== 'off'; } catch (e) {}
+
+    function tick(freq, dur, vol) {
+        if (!soundOn || reduceMotion) return;
+        try {
+            audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+            var o = audioCtx.createOscillator();
+            var g = audioCtx.createGain();
+            o.type = 'sine';
+            o.frequency.value = freq;
+            g.gain.value = vol || 0.03;
+            g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+            o.connect(g);
+            g.connect(audioCtx.destination);
+            o.start();
+            o.stop(audioCtx.currentTime + dur);
+        } catch (e) {}
+    }
+
+    /* ---------- 1. Cursor-tracking glow ---------- */
+    function initGlow() {
+        if (!finePointer) return;
+        var cards = [];
+        function collect() {
+            cards = Array.prototype.slice.call(document.querySelectorAll('.glass-card, .tilt, .contact-line'));
+            cards.forEach(function (c) {
+                if (getComputedStyle(c).position === 'static') c.style.position = 'relative';
+            });
+        }
+        collect();
+        // Pick up cards injected later (e.g. chat bubbles).
+        new MutationObserver(function () { collect(); }).observe(document.body, { childList: true, subtree: true });
+
+        var px = 0, py = 0, queued = false;
+        var REACH = 160;
+        function update() {
+            queued = false;
+            for (var i = 0; i < cards.length; i++) {
+                var c = cards[i];
+                var r = c.getBoundingClientRect();
+                if (r.bottom < -REACH || r.top > innerHeight + REACH) continue;
+                var dx = Math.max(r.left - px, 0, px - r.right);
+                var dy = Math.max(r.top - py, 0, py - r.bottom);
+                var near = Math.hypot(dx, dy) < REACH;
+                if (near) {
+                    c.style.setProperty('--mx', (px - r.left) + 'px');
+                    c.style.setProperty('--my', (py - r.top) + 'px');
+                }
+                c.classList.toggle('glow-near', near);
+            }
+        }
+        document.addEventListener('pointermove', function (e) {
+            px = e.clientX; py = e.clientY;
+            if (!queued) { queued = true; requestAnimationFrame(update); }
+        }, { passive: true });
+        document.addEventListener('pointerleave', function () {
+            cards.forEach(function (c) { c.classList.remove('glow-near'); });
+        });
+    }
+
+    /* ---------- 2. Beam borders on buttons / key cards ---------- */
+    function initBeams() {
+        var sel = '.glass-button, .btn, button.bg-blue-600, a.bg-blue-600, #quote-calculator-form button[type="submit"]';
+        document.querySelectorAll(sel).forEach(function (el) {
+            // Skip tiny header pills and the mobile menu toggle to keep the nav calm.
+            if (el.id === 'mobile-menu-button') return;
+            if (getComputedStyle(el).position === 'static') el.style.position = 'relative';
+            el.classList.add('beam-border');
+            // Hero CTAs get a one-off entrance sweep.
+            if (el.closest('.landing') || (el.closest('section') && el.closest('section').querySelector('canvas#particle-canvas') && el.className.indexOf('px-10') > -1)) {
+                el.classList.add('beam-intro');
+            }
+        });
+    }
+
+    /* ---------- 3. Spring-physics hover lift ---------- */
+    function initSprings() {
+        if (!finePointer || reduceMotion) return;
+        var STIFF = 220, DAMP = 16, MASS = 1;
+
+        function attach(el, lift, scale) {
+            if (el.id === 'welcome-card' || el.closest('#cookie-banner') || el.closest('[data-no-spring]') || el.closest('#ro-cmdk-overlay')) return;
+            if (el.__spring) return;
+            el.__spring = true;
+            el.style.transition = 'background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease';
+            var y = 0, vy = 0, s = 1, vs = 0, ty = 0, ts = 1, raf = null, last = 0;
+
+            function step(t) {
+                var dt = Math.min((t - last) / 1000, 0.032) || 0.016;
+                last = t;
+                var fy = -STIFF * (y - ty) - DAMP * vy;
+                vy += (fy / MASS) * dt; y += vy * dt;
+                var fs = -STIFF * (s - ts) - DAMP * vs;
+                vs += (fs / MASS) * dt; s += vs * dt;
+                el.style.transform = 'translate3d(0,' + y.toFixed(2) + 'px,0) scale(' + s.toFixed(4) + ')';
+                var settled = Math.abs(y - ty) < 0.02 && Math.abs(vy) < 0.02 && Math.abs(s - ts) < 0.0003 && Math.abs(vs) < 0.0003;
+                if (settled) {
+                    y = ty; s = ts;
+                    el.style.transform = (ty === 0 && ts === 1) ? '' : 'translate3d(0,' + ty + 'px,0) scale(' + ts + ')';
+                    raf = null;
+                } else {
+                    raf = requestAnimationFrame(step);
+                }
+            }
+            function go(toY, toS) {
+                ty = toY; ts = toS;
+                if (!raf) { last = performance.now(); raf = requestAnimationFrame(step); }
+            }
+            el.addEventListener('pointerenter', function () { go(lift, scale); });
+            el.addEventListener('pointerleave', function () { go(0, 1); });
+            el.addEventListener('pointerdown', function () { go(lift * 0.4, scale * 0.985); });
+            el.addEventListener('pointerup', function () { go(lift, scale); });
+        }
+
+        document.querySelectorAll('.glass-card').forEach(function (el) {
+            // Large containers (forms, whole-page panels) stay still; cards that lift are the small ones.
+            if (el.querySelector('form') || el.id === 'frank-chat-log') return;
+            attach(el, -6, 1.012);
+        });
+        document.querySelectorAll('.glass-button').forEach(function (el) {
+            attach(el, -2, 1.03);
+        });
+    }
+
+    /* ---------- 4. Bento widgets (only runs where a bento grid exists) ---------- */
+    function initBento() {
+        var grid = document.querySelector('.bento-grid');
+        if (!grid) return;
+
+        // Terminal typing
+        var term = document.getElementById('bento-terminal-out');
+        if (term) {
+            var lines = window.ROASOD_TERM || [
+                ['t-prompt', '$ roasod deploy --site client-portal'],
+                ['t-dim', 'resolving edge nodes ...'],
+                ['t-dim', 'building assets ......... done'],
+                ['t-dim', 'running security scan .... 0 issues'],
+                ['t-ok', '\u2714 live in 38s  \u2192  https://client-portal.vercel.app'],
+                ['t-prompt', '$ ']
+            ];
+            var started = false;
+            function typeLines() {
+                if (started) return; started = true;
+                term.innerHTML = '';
+                var li = 0;
+                (function nextLine() {
+                    if (li >= lines.length) { term.insertAdjacentHTML('beforeend', '<span class="bento-cursor"></span>'); return; }
+                    var l = lines[li++];
+                    var span = document.createElement('span');
+                    span.className = l[0];
+                    term.appendChild(span);
+                    var i = 0, text = l[1];
+                    if (reduceMotion) { span.textContent = text; term.appendChild(document.createTextNode('\n')); nextLine(); return; }
+                    (function ch() {
+                        if (i < text.length) { span.textContent += text.charAt(i++); setTimeout(ch, l[0] === 't-prompt' ? 28 : 10); }
+                        else { term.appendChild(document.createTextNode('\n')); setTimeout(nextLine, 220); }
+                    })();
+                })();
+            }
+            new IntersectionObserver(function (es, obs) {
+                if (es[0].isIntersecting) { typeLines(); obs.disconnect(); }
+            }, { threshold: 0.4 }).observe(term);
+        }
+
+        // Counters
+        document.querySelectorAll('[data-count-to]').forEach(function (el) {
+            var to = parseFloat(el.getAttribute('data-count-to'));
+            var suffix = el.getAttribute('data-suffix') || '';
+            var live = el.hasAttribute('data-live');
+            function render(v) { el.textContent = Math.round(v).toLocaleString('en-ZA') + suffix; }
+            new IntersectionObserver(function (es, obs) {
+                if (!es[0].isIntersecting) return;
+                obs.disconnect();
+                if (reduceMotion) { render(to); }
+                else {
+                    var t0 = performance.now(), dur = 1400;
+                    (function f(t) {
+                        var p = Math.min((t - t0) / dur, 1);
+                        render(to * (1 - Math.pow(1 - p, 3)));
+                        if (p < 1) requestAnimationFrame(f);
+                    })(t0);
+                }
+                if (live) {
+                    var val = to;
+                    setInterval(function () { val += Math.floor(Math.random() * 7) + 1; render(val); }, 2200);
+                }
+            }, { threshold: 0.5 }).observe(el);
+        });
+
+        // Mini toggles
+        document.querySelectorAll('.bento-toggle-row').forEach(function (row) {
+            function flip() {
+                var on = row.getAttribute('aria-checked') !== 'true';
+                row.setAttribute('aria-checked', on ? 'true' : 'false');
+                tick(on ? 740 : 520, 0.09, 0.04);
+                var bars = document.querySelectorAll('.bento-bars span');
+                bars.forEach(function (b) { b.style.height = (22 + Math.random() * 78) + '%'; });
+            }
+            row.addEventListener('click', flip);
+            row.addEventListener('keydown', function (e) {
+                if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flip(); }
+            });
+        });
+
+        // Initial bar heights
+        document.querySelectorAll('.bento-bars span').forEach(function (b, i) {
+            setTimeout(function () { b.style.height = (30 + Math.random() * 70) + '%'; }, 200 + i * 60);
+        });
+    }
+
+    /* ---------- 5. Command palette (Cmd/Ctrl + K) ---------- */
+    function initPalette() {
+        var items = (window.ROASOD_PALETTE || [
+            { g: 'Navigate', t: 'Home', h: 'index', u: 'index.html' },
+            { g: 'Navigate', t: 'Games', h: 'ROASOD Games', u: 'games.html' },
+            { g: 'Navigate', t: 'AI', h: 'Frank AI', u: 'ai.html' },
+            { g: 'Navigate', t: 'Websites', h: 'web & design', u: 'websites.html' },
+            { g: 'Navigate', t: 'Team', h: 'builders', u: 'team.html' },
+            { g: 'Navigate', t: 'About', h: 'our story', u: 'about.html' },
+            { g: 'Navigate', t: 'Blog', h: 'updates', u: 'blog.html' },
+            { g: 'Navigate', t: 'Socials', h: 'follow us', u: 'socials.html' },
+            { g: 'Navigate', t: 'Adverts', h: 'advertise', u: 'adverts.html' },
+            { g: 'Navigate', t: 'Feedback', h: 'rate us', u: 'feedback.html' },
+            { g: 'Navigate', t: 'Contact', h: 'start a project', u: 'contact.html' },
+            { g: 'Account', t: 'Log in', u: 'login.html' },
+            { g: 'Account', t: 'Sign up', u: 'signup.html' },
+            { g: 'Actions', t: 'Chat with Frank on WhatsApp', h: 'opens WhatsApp', u: 'https://wa.me/27602600910?text=Hi%20Frank%2C%20I%27d%20like%20to%20chat%20about%20a%20project', ext: true },
+            { g: 'Actions', t: 'Open ROASOD Games site', h: 'external', u: 'https://roasodgames.vercel.app', ext: true },
+        ]).concat([
+            { g: 'Actions', t: 'Scroll to top', fn: function () { window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' }); } },
+            { g: 'Actions', t: 'Toggle sound effects', fn: function () { setSound(!soundOn); } }
+        ]);
+
+        function setSound(on) {
+            soundOn = on;
+            try { localStorage.setItem('roasod_sound', on ? 'on' : 'off'); } catch (e) {}
+            var btn = document.getElementById('ro-cmdk-sound');
+            if (btn) btn.textContent = on ? 'Sound: on' : 'Sound: off';
+            if (on) tick(660, 0.08, 0.04);
+        }
+
+        var hint = document.createElement('button');
+        hint.id = 'ro-cmdk-hint';
+        hint.type = 'button';
+        hint.className = 'glass-button';
+        hint.setAttribute('aria-label', 'Open command palette');
+        var isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+        hint.innerHTML = 'Quick actions <kbd>' + (isMac ? '\u2318' : 'Ctrl') + ' K</kbd>';
+        document.body.appendChild(hint);
+
+        var overlay = document.createElement('div');
+        overlay.id = 'ro-cmdk-overlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-label', 'Command palette');
+        overlay.innerHTML =
+            '<div id="ro-cmdk">' +
+            '<input id="ro-cmdk-input" type="text" placeholder="Search pages and actions..." autocomplete="off" spellcheck="false" aria-label="Search commands">' +
+            '<div id="ro-cmdk-list" role="listbox"></div>' +
+            '<div id="ro-cmdk-foot"><span><kbd>\u2191</kbd> <kbd>\u2193</kbd> move &nbsp; <kbd>\u21B5</kbd> select &nbsp; <kbd>Esc</kbd> close</span>' +
+            '<button type="button" id="ro-cmdk-sound"></button></div>' +
+            '</div>';
+        document.body.appendChild(overlay);
+
+        var input = overlay.querySelector('#ro-cmdk-input');
+        var list = overlay.querySelector('#ro-cmdk-list');
+        var soundBtn = overlay.querySelector('#ro-cmdk-sound');
+        soundBtn.textContent = soundOn ? 'Sound: on' : 'Sound: off';
+        soundBtn.addEventListener('click', function () { setSound(!soundOn); });
+
+        var results = [], active = 0;
+
+        // Subsequence fuzzy match; returns score + matched indices, or null.
+        function fuzzy(q, text) {
+            if (!q) return { score: 0, idx: [] };
+            var lt = text.toLowerCase(), lq = q.toLowerCase(), idx = [], pos = 0, score = 0, prev = -2;
+            for (var i = 0; i < lq.length; i++) {
+                var f = lt.indexOf(lq.charAt(i), pos);
+                if (f === -1) return null;
+                idx.push(f);
+                score += (f === prev + 1) ? 5 : 1;
+                if (f === 0 || lt.charAt(f - 1) === ' ') score += 3;
+                prev = f; pos = f + 1;
+            }
+            return { score: score - text.length * 0.02, idx: idx };
+        }
+
+        function highlight(text, idx) {
+            if (!idx.length) return esc(text);
+            var out = '', set = {};
+            idx.forEach(function (i) { set[i] = 1; });
+            for (var i = 0; i < text.length; i++) {
+                out += set[i] ? '<mark>' + esc(text.charAt(i)) + '</mark>' : esc(text.charAt(i));
+            }
+            return out;
+        }
+        function esc(s) { return s.replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+        function render() {
+            var q = input.value.trim();
+            results = [];
+            items.forEach(function (it) {
+                var m = fuzzy(q, it.t);
+                if (!m && it.h) { var m2 = fuzzy(q, it.h); if (m2) m = { score: m2.score - 2, idx: [] }; }
+                if (m) results.push({ it: it, m: m });
+            });
+            if (q) results.sort(function (a, b) { return b.m.score - a.m.score; });
+            if (active >= results.length) active = 0;
+
+            if (!results.length) { list.innerHTML = '<div id="ro-cmdk-empty">No matches. Try "games" or "contact".</div>'; return; }
+            var html = '', lastG = '';
+            results.forEach(function (r, i) {
+                if (!q && r.it.g !== lastG) { html += '<div class="ro-cmdk-group">' + r.it.g + '</div>'; lastG = r.it.g; }
+                html += '<div class="ro-cmdk-item' + (i === active ? ' active' : '') + '" role="option" data-i="' + i + '">' +
+                    '<span>' + highlight(r.it.t, r.m.idx) + '</span>' +
+                    '<span class="hint">' + (r.it.h ? esc(r.it.h) : '') + '</span></div>';
+            });
+            list.innerHTML = html;
+            var a = list.querySelector('.active');
+            if (a && a.scrollIntoView) a.scrollIntoView({ block: 'nearest' });
+        }
+
+        function open() {
+            overlay.classList.add('open');
+            input.value = ''; active = 0; render();
+            setTimeout(function () { input.focus(); }, 0);
+            document.body.style.overflow = 'hidden';
+            tick(880, 0.07, 0.035);
+        }
+        function close() {
+            overlay.classList.remove('open');
+            document.body.style.overflow = '';
+            tick(520, 0.07, 0.03);
+        }
+        function run(i) {
+            var r = results[i]; if (!r) return;
+            var it = r.it;
+            tick(990, 0.1, 0.04);
+            close();
+            if (it.fn) it.fn();
+            else if (it.ext) window.open(it.u, '_blank', 'noopener');
+            else window.location.href = it.u;
+        }
+
+        hint.addEventListener('click', open);
+        overlay.addEventListener('mousedown', function (e) { if (e.target === overlay) close(); });
+        list.addEventListener('mousemove', function (e) {
+            var el = e.target.closest('.ro-cmdk-item');
+            if (el && +el.dataset.i !== active) {
+                active = +el.dataset.i;
+                list.querySelectorAll('.ro-cmdk-item').forEach(function (n) { n.classList.toggle('active', +n.dataset.i === active); });
+            }
+        });
+        list.addEventListener('click', function (e) {
+            var el = e.target.closest('.ro-cmdk-item');
+            if (el) run(+el.dataset.i);
+        });
+        input.addEventListener('input', function () { active = 0; render(); tick(1200, 0.02, 0.012); });
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'ArrowDown') { e.preventDefault(); active = (active + 1) % Math.max(results.length, 1); render(); tick(800, 0.03, 0.02); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); active = (active - 1 + results.length) % Math.max(results.length, 1); render(); tick(800, 0.03, 0.02); }
+            else if (e.key === 'Enter') { e.preventDefault(); run(active); }
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                overlay.classList.contains('open') ? close() : open();
+            } else if (e.key === 'Escape' && overlay.classList.contains('open')) {
+                close();
+            }
+        });
+    }
+
+    ready(function () {
+        initGlow();
+        initBeams();
+        initSprings();
+        initBento();
+        initPalette();
+    });
+})();
+
+    </script>
 </body>
 </html>
