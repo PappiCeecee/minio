@@ -292,8 +292,46 @@
         </div>
     </section>
 
+    <!-- Bento -->
+    <section id="studio" class="py-32 bg-navy">
+        <div class="max-w-6xl mx-auto px-6">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-5xl font-bold mb-4">Made in the Studio</h2>
+                <p class="text-xl text-gray-400">A peek at how a ROASOD Media project comes together.</p>
+            </div>
+            <div class="bento-grid">
+                <div class="bento-cell bento-a glass-card">
+                    <p class="bento-label">Render</p>
+                    <h3 class="text-2xl font-bold">From brief to final export</h3>
+                    <div id="bento-terminal-out" class="bento-terminal" aria-label="Terminal preview (illustrative)"><span class="bento-cursor"></span></div>
+                </div>
+                <div class="bento-cell bento-b glass-card">
+                    <p class="bento-label"><span class="bento-live-dot"></span>Under one roof</p>
+                    <div class="bento-counter" data-count-to="6">6</div>
+                    <p>design services, one team</p>
+                </div>
+                <div class="bento-cell bento-c glass-card">
+                    <p class="bento-label">Delivered with every project</p>
+                    <div class="bento-toggle-row" role="switch" tabindex="0" aria-checked="true"><span>PNG &amp; JPG for everyday use</span><span class="bento-switch"></span></div>
+                    <div class="bento-toggle-row" role="switch" tabindex="0" aria-checked="true"><span>SVG &amp; PDF vectors</span><span class="bento-switch"></span></div>
+                    <div class="bento-bars" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                </div>
+                <div class="bento-cell bento-d glass-card">
+                    <p class="bento-label">Brand &amp; video projects</p>
+                    <div class="bento-counter">1&ndash;3 wk</div>
+                    <p>from brief to delivery</p>
+                </div>
+                <div class="bento-cell bento-e glass-card">
+                    <p class="bento-label">Shortcut</p>
+                    <h3 class="text-xl font-bold mb-2">Press Ctrl / &#8984; + K</h3>
+                    <p>Jump to any section or pick a package instantly.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Process Section -->
-    <section class="py-32 bg-navy">
+    <section id="process" class="py-32 bg-navy">
         <div class="max-w-6xl mx-auto px-6">
             <div class="text-center mb-20">
                 <h2 class="text-4xl font-bold mb-4">How We Work</h2>
@@ -309,13 +347,13 @@
     </section>
 
     <!-- Quote Calculator Section -->
-    <section class="py-32 bg-navy">
+    <section id="quote" class="py-32 bg-navy">
         <div class="max-w-4xl mx-auto px-6">
             <div class="text-center mb-16">
                 <h2 class="text-4xl font-bold mb-4">Get a Quote in 60 Seconds</h2>
                 <p class="text-xl text-gray-400">Select what you need — get an instant estimate.</p>
             </div>
-            <form id="quote-calculator-form" class="glass-card p-8 md:p-12 rounded-3xl space-y-6">
+            <form id="quote-calculator-form" data-no-spring class="glass-card p-8 md:p-12 rounded-3xl space-y-6">
                 <div class="grid sm:grid-cols-2 gap-4">
                     <label class="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-5 py-4 cursor-pointer hover:border-blue-600 transition-colors"><input type="checkbox" name="quote-service" value="logo" data-price="25" class="w-5 h-5 accent-blue-600"><span>Logo &amp; Branding</span></label>
                     <label class="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-5 py-4 cursor-pointer hover:border-blue-600 transition-colors"><input type="checkbox" name="quote-service" value="social" data-price="30" class="w-5 h-5 accent-blue-600"><span>Social Media Graphics</span></label>
@@ -332,7 +370,7 @@
     </section>
 
     <!-- FAQ Section -->
-    <section class="py-32 bg-navy">
+    <section id="faq" class="py-32 bg-navy">
         <div class="max-w-3xl mx-auto px-6">
             <div class="text-center mb-16">
                 <h2 class="text-4xl font-bold mb-4">Frequently Asked Questions</h2>
@@ -518,5 +556,36 @@
         document.getElementById('copyright-year').textContent = new Date().getFullYear();
     })();
     </script>
+    <script>
+    window.ROASOD_TERM = [
+        ['t-prompt', '$ roasod media export --project brand-pack'],
+        ['t-dim', 'collecting brief ........ done'],
+        ['t-dim', 'rendering logo + palette . done'],
+        ['t-dim', 'exporting PNG, SVG, PDF ... done'],
+        ['t-ok', '\u2714 delivered  \u2192  ready to publish or print'],
+        ['t-prompt', '$ ']
+    ];
+    function pick(v){ var r=document.querySelector('#plan-group input[value="'+v+'"]'); if(r){ r.click(); } document.getElementById('pricing').scrollIntoView({behavior:'smooth'}); }
+    window.ROASOD_PALETTE = [
+        { g: 'Jump to', t: 'What we create', h: 'services', u: '#divisions' },
+        { g: 'Jump to', t: 'Selected work', u: '#work' },
+        { g: 'Jump to', t: 'Design packages', h: 'pricing', u: '#pricing' },
+        { g: 'Jump to', t: 'How we work', u: '#process' },
+        { g: 'Jump to', t: 'Get a quote', u: '#quote' },
+        { g: 'Jump to', t: 'FAQ', u: '#faq' },
+        { g: 'Packages', t: 'Choose Starter Pack', h: '$20', fn: function(){ pick('starter'); } },
+        { g: 'Packages', t: 'Choose Brand Pack', h: '$75', fn: function(){ pick('brand'); } },
+        { g: 'Packages', t: 'Choose Studio Pack', h: '$150', fn: function(){ pick('studio'); } },
+        { g: 'Pages', t: 'Websites', u: 'websites.html' },
+        { g: 'Pages', t: 'AI', u: 'ai.html' },
+        { g: 'Pages', t: 'Games', u: 'games.html' },
+        { g: 'Pages', t: 'Team', u: 'team.html' },
+        { g: 'Pages', t: 'Socials', u: 'socials.html' },
+        { g: 'Pages', t: 'Contact', u: 'contact.html' },
+        { g: 'Actions', t: 'Chat with Frank on WhatsApp', h: 'opens WhatsApp', u: 'https://wa.me/27602600910?text=Hi%20Frank%2C%20I%27d%20like%20to%20chat%20about%20a%20design%20project', ext: true },
+        { g: 'Actions', t: 'Send an email', u: 'mailto:rayceeblaccreedtshabalala@gmail.com' }
+    ];
+    </script>
+    <script src="roasod-ui.js" defer></script>
 </body>
 </html>
