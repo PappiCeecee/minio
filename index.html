@@ -1,230 +1,522 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Frank-AI | ROASOD Automations </title>
-<style>
-  :root {
-    --bg: #f4f7fb;
-    --panel: #ffffff;
-    --accent: #0072ff;
-    --accent-2: #00c6ff;
-    --text: #1a2233;
-    --muted: #6b7688;
-    --bubble-user: #0072ff;
-    --bubble-ai: #eef2f9;
-    --border: #e3e8f0;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    min-height: 100vh;
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-  header {
-    width: 100%;
-    padding: 18px 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    border-bottom: 1px solid var(--border);
-    background: var(--panel);
-  }
-  .orb {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent-2), var(--accent));
-    box-shadow: 0 0 16px rgba(0, 114, 255, 0.5);
-    animation: pulse 2.4s ease-in-out infinite;
-  }
-  @keyframes pulse {
-    0%, 100% { transform: scale(1); box-shadow: 0 0 16px rgba(0,114,255,.5); }
-    50% { transform: scale(1.12); box-shadow: 0 0 26px rgba(0,114,255,.75); }
-  }
-  header h1 {
-    font-size: 18px;
-    letter-spacing: 2px;
-    margin: 0;
-    font-weight: 700;
-  }
-  header .tag {
-    font-size: 11px;
-    color: var(--muted);
-    letter-spacing: 1px;
-    text-transform: uppercase;
-  }
-  main {
-    width: 100%;
-    max-width: 720px;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    padding: 16px;
-  }
-  #chat {
-    flex: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 8px 2px 16px;
-    min-height: 60vh;
-  }
-  .msg {
-    max-width: 82%;
-    padding: 10px 14px;
-    border-radius: 14px;
-    line-height: 1.4;
-    font-size: 14.5px;
-    white-space: pre-wrap;
-  }
-  .msg.user {
-    align-self: flex-end;
-    background: var(--bubble-user);
-    color: #fff;
-    border-bottom-right-radius: 4px;
-  }
-  .msg.ai {
-    align-self: flex-start;
-    background: var(--bubble-ai);
-    color: var(--text);
-    border-bottom-left-radius: 4px;
-  }
-  .msg.ai.typing { color: var(--muted); font-style: italic; }
-  #composer {
-    display: flex;
-    gap: 8px;
-    padding: 10px;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    position: sticky;
-    bottom: 12px;
-  }
-  #input {
-    flex: 1;
-    border: none;
-    outline: none;
-    font-size: 15px;
-    padding: 8px 6px;
-    background: transparent;
-    color: var(--text);
-  }
-  #send {
-    border: none;
-    background: linear-gradient(135deg, var(--accent-2), var(--accent));
-    color: #fff;
-    padding: 10px 18px;
-    border-radius: 10px;
-    font-weight: 600;
-    cursor: pointer;
-    font-size: 14px;
-  }
-  #send:disabled { opacity: .5; cursor: default; }
-  footer {
-    padding: 10px;
-    font-size: 11px;
-    color: var(--muted);
-    letter-spacing: 1px;
-    text-transform: uppercase;
-  }
-</style>
-</head>
-<body>
-  <header>
-    <div class="orb"></div>
-    <div>
-      <h1>FRANK</h1>
-      <div class="tag">AI Assistant · ROASOD</div>
-    </div>
-  </header>
-
-  <main>
-    <div id="chat">
-      <div class="msg ai">Hey, I'm Frank — the AI assistant built by ROASOD. What can I help you with?</div>
-    </div>
-    <div id="composer">
-      <input id="input" type="text" placeholder="Message Frank..." autocomplete="off" />
-      <button id="send">Send</button>
-    </div>
-  </main>
-
-  <footer>Frank AI · Built under ROASOD by Tshabalala Raycee</footer>
-
-  <script>
-    // ---- CONFIG ----
-    // Replace with your deployed Supabase Edge Function URL, e.g.:
-    // https://YOUR-PROJECT-REF.supabase.co/functions/v1/frank-chat
-    const FRANK_ENDPOINT = "https://ndzwlxffsyqhnmxjwnkr.supabase.co/functions/v1/frank-chat";
-    // If you set verify_jwt = true in config.toml, put your Supabase anon key here.
-    const SUPABASE_ANON_KEY = ""; // optional
-
-    const chat = document.getElementById("chat");
-    const input = document.getElementById("input");
-    const sendBtn = document.getElementById("send");
-
-    let history = [];
-
-    function addMessage(text, who) {
-      const div = document.createElement("div");
-      div.className = "msg " + who;
-      div.innerText = text;
-      chat.appendChild(div);
-      chat.scrollTop = chat.scrollHeight;
-      return div;
-    }
-
-    async function sendMessage() {
-      const text = input.value.trim();
-      if (!text) return;
-      input.value = "";
-      sendBtn.disabled = true;
-
-      addMessage(text, "user");
-      const typingEl = addMessage("Frank is typing...", "ai typing");
-
-      try {
-        const headers = { "Content-Type": "application/json" };
-        if (SUPABASE_ANON_KEY) headers["Authorization"] = "Bearer " + SUPABASE_ANON_KEY;
-
-        const res = await fetch(FRANK_ENDPOINT, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ message: text, history }),
-        });
-        const data = await res.json();
-        typingEl.remove();
-
-        if (!res.ok) {
-          addMessage("Sorry, sir — something went wrong: " + (data.error || res.status), "ai");
-          return;
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ROASOD-Media | ROASOD</title>
+    <link rel="icon" type="image/png" href="ROASOD.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0000ff">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
+        .glass-button {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+        .glass-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-2px);
+        }
+        .bg-navy { background-color: #000c24; }
+        .gradient-bg {
+            background: radial-gradient(circle at top right, #0000ff, transparent),
+                        radial-gradient(circle at bottom left, #000c24, #000033);
+        }
+        nav a { transition: all 0.3s ease; }
+        nav a:hover { text-shadow: 0 0 10px rgba(59, 130, 246, 0.8); }
+        .work-tile { position: relative; overflow: hidden; aspect-ratio: 4/3; }
+        .work-tile .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; padding: 1.5rem; background: linear-gradient(to top, rgba(0,12,36,.85), transparent 60%); }
+        .work-tile .art { position: absolute; inset: 0; transition: transform .5s ease; }
+        .work-tile:hover .art { transform: scale(1.06); }
+    </style>
+    <link rel="stylesheet" href="roasod-ui.css">
+</head>
+<body class="bg-navy text-white selection:bg-blue-600 selection:text-white">
+    <!-- Navigation -->
+    <header class="fixed top-0 left-0 w-full z-50 border-b border-white/10 bg-transparent backdrop-blur-md">
+        <div class="max-w-6xl mx-auto px-6 py-6 flex items-center justify-between">
+            <div class="flex items-center">
+                <span class="text-2xl font-bold tracking-tighter">ROASOD<span class="text-blue-600">.</span></span>
+            </div>
 
-        addMessage(data.reply, "ai");
-        history.push({ role: "user", content: text });
-        history.push({ role: "assistant", content: data.reply });
-        history = history.slice(-8);
-      } catch (err) {
-        typingEl.remove();
-        addMessage("I couldn't reach the server. Check your connection and try again.", "ai");
-      } finally {
-        sendBtn.disabled = false;
-        input.focus();
-      }
-    }
+            <nav class="hidden md:flex items-center space-x-8 text-white font-medium">
+                <a href="index.html" class="hover:text-blue-500 transition-colors">Home</a>
+                <a href="games.html" class="hover:text-blue-500 transition-colors">Games</a>
+                <a href="ai.html" class="hover:text-blue-500 transition-colors">AI</a>
+                <a href="websites.html" class="hover:text-blue-500 transition-colors">Websites</a>
+                <a href="media.html" class="text-blue-500 transition-colors">Media</a>
+                <a href="team.html" class="hover:text-blue-500 transition-colors">Team</a>
+                <a href="contact.html" class="hover:text-blue-500 transition-colors">Contact</a>
+            </nav>
 
-    sendBtn.addEventListener("click", sendMessage);
-    input.addEventListener("keypress", (e) => {
-      if (e.key === "Enter") sendMessage();
-    });
-  </script>
+            <div class="flex items-center gap-2 sm:gap-3">
+                <a href="login.html" class="glass-button px-3 py-1.5 sm:px-5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold">Login</a>
+                <a href="signup.html" class="glass-button px-3 py-1.5 sm:px-5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold">Sign Up</a>
+                <button id="mobile-menu-button" class="md:hidden text-white focus:outline-none relative z-[60]" aria-label="Toggle menu" aria-controls="mobile-menu" aria-expanded="false">
+                    <svg id="menu-icon-open" class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                    <svg id="menu-icon-close" class="w-8 h-8 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Menu Overlay -->
+        <div id="mobile-menu" class="hidden md:hidden bg-navy absolute w-full left-0 top-full py-8 px-6 space-y-6 text-center shadow-2xl border-t border-white/10 overscroll-contain">
+            <a href="index.html" class="block text-xl text-white hover:text-blue-500">Home</a>
+            <a href="games.html" class="block text-xl text-white hover:text-blue-500">Games</a>
+            <a href="ai.html" class="block text-xl text-white hover:text-blue-500">AI</a>
+            <a href="websites.html" class="block text-xl text-white hover:text-blue-500">Websites</a>
+            <a href="media.html" class="block text-xl text-blue-500">Media</a>
+            <a href="about.html" class="block text-xl text-white hover:text-blue-500">About</a>
+            <a href="team.html" class="block text-xl text-white hover:text-blue-500">Team</a>
+            <a href="blog.html" class="block text-xl text-white hover:text-blue-500">Blog</a>
+            <a href="socials.html" class="block text-xl text-white hover:text-blue-500">Socials</a>
+            <a href="adverts.html" class="block text-xl text-white hover:text-blue-500">Adverts</a>
+            <a href="feedback.html" class="block text-xl text-white hover:text-blue-500">Feedback</a>
+            <button onclick="location.href='contact.html'" class="w-full px-6 py-3 glass-button rounded-full font-bold">Contact Us</button>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="min-h-screen flex items-center justify-center gradient-bg relative overflow-hidden pt-20">
+        <canvas id="particle-canvas" class="absolute inset-0 z-0"></canvas>
+        <div class="absolute inset-0 opacity-20 pointer-events-none">
+            <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600 rounded-full blur-[128px]"></div>
+        </div>
+
+        <div class="max-w-6xl mx-auto px-6 text-center relative z-10">
+            <h1 class="text-6xl md:text-8xl font-bold mb-8 tracking-tighter uppercase">
+                ROASOD <span class="text-blue-600">Media</span>
+            </h1>
+            <p class="text-xl md:text-2xl text-gray-400 mb-12 max-w-2xl mx-auto leading-relaxed">
+                Designing bold, high-quality graphics, motion and brand visuals that make elite brands impossible to ignore.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <a href="#pricing" class="px-10 py-4 glass-button rounded-2xl font-semibold text-lg inline-block">View Design Packages</a>
+                <a href="https://roasod.vercel.app/socials" class="px-10 py-4 glass-button rounded-2xl font-semibold text-lg inline-block">Follow our socials</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Services Section -->
+    <section id="divisions" class="py-32 bg-navy">
+        <div class="max-w-6xl mx-auto px-6">
+            <div class="text-center mb-20">
+                <h2 class="text-4xl md:text-5xl font-bold mb-4">What We Create</h2>
+                <p class="text-xl text-gray-400">Graphic &amp; Multimedia Design &mdash; from first sketch to final export.</p>
+            </div>
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="p-10 rounded-3xl glass-card border-blue-600/50 hover:border-blue-500 transition-all group">
+                    <div class="w-14 h-14 bg-blue-600/20 border border-blue-600 rounded-2xl flex items-center justify-center mb-8">
+                        <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-4">Logo &amp; Brand Identity</h3>
+                    <p class="text-gray-400 leading-relaxed">Logos, colour palettes, typography and brand guidelines that give your business a face people remember.</p>
+                </div>
+                <div class="p-10 rounded-3xl glass-card border-blue-600/50 hover:border-blue-500 transition-all group">
+                    <div class="w-14 h-14 bg-blue-600/20 border border-blue-600 rounded-2xl flex items-center justify-center mb-8">
+                        <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-4">Social Media Graphics</h3>
+                    <p class="text-gray-400 leading-relaxed">Scroll-stopping posts, stories, banners and thumbnails, designed to keep your feed consistent and on brand.</p>
+                </div>
+                <div class="p-10 rounded-3xl glass-card border-blue-600/50 hover:border-blue-500 transition-all group">
+                    <div class="w-14 h-14 bg-blue-600/20 border border-blue-600 rounded-2xl flex items-center justify-center mb-8">
+                        <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-4">Video &amp; Motion</h3>
+                    <p class="text-gray-400 leading-relaxed">Promo videos, animated logos, reels and motion graphics that bring your story to life.</p>
+                </div>
+                <div class="p-10 rounded-3xl glass-card border-blue-600/50 hover:border-blue-500 transition-all group">
+                    <div class="w-14 h-14 bg-blue-600/20 border border-blue-600 rounded-2xl flex items-center justify-center mb-8">
+                        <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    </div>
+                    <p class="text-2xl font-bold mb-4">UX/GUI</p>
+                    <h3 class="text-2xl font-bold mb-4">App &amp; Interface Design</h3>
+                    <p class="text-gray-400 leading-relaxed">Clean, usable screens and prototypes for websites, apps and games, ready for developers to build.</p>
+                </div>
+                <div class="p-10 rounded-3xl glass-card border-blue-600/50 hover:border-blue-500 transition-all group">
+                    <div class="w-14 h-14 bg-blue-600/20 border border-blue-600 rounded-2xl flex items-center justify-center mb-8">
+                        <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-4">Print &amp; Packaging</h3>
+                    <p class="text-gray-400 leading-relaxed">Flyers, posters, business cards, banners and packaging, delivered print-ready in the right formats.</p>
+                </div>
+                <div class="p-10 rounded-3xl glass-card border-blue-600/50 hover:border-blue-500 transition-all group">
+                    <div class="w-14 h-14 bg-blue-600/20 border border-blue-600 rounded-2xl flex items-center justify-center mb-8">
+                        <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-4">Photo Editing &amp; Retouching</h3>
+                    <p class="text-gray-400 leading-relaxed">Product shots, portraits and campaign imagery polished, colour-corrected and ready to publish.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Selected Work -->
+    <section id="work" class="py-32 bg-navy">
+        <div class="max-w-6xl mx-auto px-6">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-5xl font-bold mb-4">Selected Work</h2>
+                <p class="text-xl text-gray-400">A taste of the style we bring to every project.</p>
+            </div>
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="work-tile glass-card rounded-3xl">
+                    <div class="art" style="background: radial-gradient(circle at 30% 20%, #0000ff, transparent 60%), linear-gradient(135deg,#000033,#000c24);"></div>
+                    <div class="overlay"><p class="text-xs uppercase tracking-widest text-blue-400 font-semibold mb-1">Branding</p><h3 class="text-xl font-bold">Brand Identity Suite</h3></div>
+                </div>
+                <div class="work-tile glass-card rounded-3xl">
+                    <div class="art" style="background: radial-gradient(circle at 70% 30%, #3b82f6, transparent 55%), linear-gradient(160deg,#000c24,#001a66);"></div>
+                    <div class="overlay"><p class="text-xs uppercase tracking-widest text-blue-400 font-semibold mb-1">Social</p><h3 class="text-xl font-bold">Campaign Content Pack</h3></div>
+                </div>
+                <div class="work-tile glass-card rounded-3xl">
+                    <div class="art" style="background: radial-gradient(circle at 50% 80%, #1d4ed8, transparent 60%), linear-gradient(200deg,#000033,#000c24);"></div>
+                    <div class="overlay"><p class="text-xs uppercase tracking-widest text-blue-400 font-semibold mb-1">Motion</p><h3 class="text-xl font-bold">Animated Logo Reveal</h3></div>
+                </div>
+                <div class="work-tile glass-card rounded-3xl">
+                    <div class="art" style="background: radial-gradient(circle at 20% 70%, #2563eb, transparent 55%), linear-gradient(120deg,#000c24,#000033);"></div>
+                    <div class="overlay"><p class="text-xs uppercase tracking-widest text-blue-400 font-semibold mb-1">UX/GUI</p><h3 class="text-xl font-bold">App Interface Concept</h3></div>
+                </div>
+                <div class="work-tile glass-card rounded-3xl">
+                    <div class="art" style="background: radial-gradient(circle at 80% 70%, #0000ff, transparent 55%), linear-gradient(180deg,#000c24,#001040);"></div>
+                    <div class="overlay"><p class="text-xs uppercase tracking-widest text-blue-400 font-semibold mb-1">Print</p><h3 class="text-xl font-bold">Event Poster Series</h3></div>
+                </div>
+                <div class="work-tile glass-card rounded-3xl">
+                    <div class="art" style="background: radial-gradient(circle at 40% 40%, #60a5fa, transparent 50%), linear-gradient(145deg,#000033,#000c24);"></div>
+                    <div class="overlay"><p class="text-xs uppercase tracking-widest text-blue-400 font-semibold mb-1">Photo</p><h3 class="text-xl font-bold">Product Retouch Set</h3></div>
+                </div>
+            </div>
+            <p class="text-center text-sm text-gray-500 mt-8">Replace these tiles with your real project images: put an <code class="text-gray-300">&lt;img&gt;</code> inside each <code class="text-gray-300">.art</code> block.</p>
+        </div>
+    </section>
+
+    <!-- Choose Your Design Package -->
+    <section id="pricing" class="py-32 bg-navy">
+        <div class="max-w-6xl mx-auto px-6">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-5xl font-bold mb-4">Choose Your Design Package</h2>
+                <p class="text-xl text-gray-400">ROASOD &mdash; The Future Digital Innovation. Pick the one that fits, then order.</p>
+            </div>
+            <div id="plan-group" role="radiogroup" aria-label="Design package" class="grid md:grid-cols-3 gap-6 items-stretch pt-4">
+                <label class="plan-opt glass-card relative rounded-3xl p-8 flex flex-col cursor-pointer border-2 border-white/10 transition-all hover:border-blue-500/60 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-600/10" data-name="Starter Design Pack" data-price="20">
+                    <input type="radio" name="site-plan" value="starter" class="sr-only">
+                    <div class="flex items-start justify-between gap-4 mb-2">
+                        <h3 class="text-2xl font-bold">Starter Pack</h3>
+                        <span class="plan-dot w-6 h-6 rounded-full border-2 border-white/30 shrink-0 flex items-center justify-center"><span class="w-3 h-3 rounded-full bg-blue-500 scale-0 transition-transform"></span></span>
+                    </div>
+                    <p class="text-sm text-gray-400 mb-5">Individuals & side projects</p>
+                    <p class="mb-6"><span class="text-5xl font-bold tracking-tighter">$20</span></p>
+                    <p class="font-semibold text-sm mb-4">Recommended features:</p>
+                    <ul class="space-y-3 text-sm text-gray-300 mb-6">
+                        <li class="flex gap-3"><svg width="16" height="16" class="w-4 h-4 mt-1 shrink-0 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>1 logo concept + 1 revision</span></li>
+                        <li class="flex gap-3"><svg width="16" height="16" class="w-4 h-4 mt-1 shrink-0 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>3 social media graphics</span></li>
+                        <li class="flex gap-3"><svg width="16" height="16" class="w-4 h-4 mt-1 shrink-0 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>PNG &amp; JPG files</span></li>
+                        <li class="flex gap-3"><svg width="16" height="16" class="w-4 h-4 mt-1 shrink-0 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Fast turnaround</span></li>
+                    </ul>
+                    <div class="mt-auto border-t border-white/10 pt-5">
+                        <p class="text-xs uppercase tracking-widest text-blue-400 font-semibold mb-2">Why choose this</p>
+                        <p class="text-sm text-gray-400 leading-relaxed">The quickest, cheapest way to get a clean, professional look without a big commitment.</p>
+                    </div>
+                </label>
+                <label class="plan-opt glass-card relative rounded-3xl p-8 flex flex-col cursor-pointer border-2 border-white/10 transition-all hover:border-blue-500/60 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-600/10" data-name="Brand Design Pack" data-price="75">
+                    <input type="radio" name="site-plan" value="brand" class="sr-only" checked>
+                    <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs font-bold tracking-widest uppercase px-4 py-1.5 rounded-full">Recommended</span>
+                    <div class="flex items-start justify-between gap-4 mb-2">
+                        <h3 class="text-2xl font-bold">Brand Pack</h3>
+                        <span class="plan-dot w-6 h-6 rounded-full border-2 border-white/30 shrink-0 flex items-center justify-center"><span class="w-3 h-3 rounded-full bg-blue-500 scale-0 transition-transform"></span></span>
+                    </div>
+                    <p class="text-sm text-gray-400 mb-5">Growing businesses & startups</p>
+                    <p class="mb-6"><span class="text-5xl font-bold tracking-tighter">$75</span></p>
+                    <p class="font-semibold text-sm mb-4">Recommended features:</p>
+                    <ul class="space-y-3 text-sm text-gray-300 mb-6">
+                        <li class="flex gap-3"><svg width="16" height="16" class="w-4 h-4 mt-1 shrink-0 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>3 logo concepts + 3 revisions</span></li>
+                        <li class="flex gap-3"><svg width="16" height="16" class="w-4 h-4 mt-1 shrink-0 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Colour palette &amp; typography guide</span></li>
+                        <li class="flex gap-3"><svg width="16" height="16" class="w-4 h-4 mt-1 shrink-0 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>10 social media graphics</span></li>
+                        <li class="flex gap-3"><svg width="16" height="16" class="w-4 h-4 mt-1 shrink-0 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Business card &amp; flyer design</span></li>
+                        <li class="flex gap-3"><svg width="16" height="16" class="w-4 h-4 mt-1 shrink-0 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Vector source files (SVG/PDF)</span></li>
+                    </ul>
+                    <div class="mt-auto border-t border-white/10 pt-5">
+                        <p class="text-xs uppercase tracking-widest text-blue-400 font-semibold mb-2">Why choose this</p>
+                        <p class="text-sm text-gray-400 leading-relaxed">A complete, consistent look across every place customers meet your brand, online and in print.</p>
+                    </div>
+                </label>
+                <label class="plan-opt glass-card relative rounded-3xl p-8 flex flex-col cursor-pointer border-2 border-white/10 transition-all hover:border-blue-500/60 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-600/10" data-name="Studio Media Pack" data-price="150">
+                    <input type="radio" name="site-plan" value="studio" class="sr-only">
+                    <div class="flex items-start justify-between gap-4 mb-2">
+                        <h3 class="text-2xl font-bold">Studio Pack</h3>
+                        <span class="plan-dot w-6 h-6 rounded-full border-2 border-white/30 shrink-0 flex items-center justify-center"><span class="w-3 h-3 rounded-full bg-blue-500 scale-0 transition-transform"></span></span>
+                    </div>
+                    <p class="text-sm text-gray-400 mb-5">Brands that want it all, including video</p>
+                    <p class="mb-6"><span class="text-5xl font-bold tracking-tighter">$150</span></p>
+                    <p class="font-semibold text-sm mb-4">Recommended features:</p>
+                    <ul class="space-y-3 text-sm text-gray-300 mb-6">
+                        <li class="flex gap-3"><svg width="16" height="16" class="w-4 h-4 mt-1 shrink-0 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Full brand identity &amp; guidelines</span></li>
+                        <li class="flex gap-3"><svg width="16" height="16" class="w-4 h-4 mt-1 shrink-0 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>20 social graphics + story templates</span></li>
+                        <li class="flex gap-3"><svg width="16" height="16" class="w-4 h-4 mt-1 shrink-0 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Animated logo + 1 promo video</span></li>
+                        <li class="flex gap-3"><svg width="16" height="16" class="w-4 h-4 mt-1 shrink-0 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Print &amp; packaging layouts</span></li>
+                        <li class="flex gap-3"><svg width="16" height="16" class="w-4 h-4 mt-1 shrink-0 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Priority support &amp; unlimited minor edits</span></li>
+                    </ul>
+                    <div class="mt-auto border-t border-white/10 pt-5">
+                        <p class="text-xs uppercase tracking-widest text-blue-400 font-semibold mb-2">Why choose this</p>
+                        <p class="text-sm text-gray-400 leading-relaxed">One team handling every visual, so your brand looks and moves the same everywhere.</p>
+                    </div>
+                </label>
+            </div>
+            <div class="glass-card rounded-3xl mt-10 p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+                <div class="text-center md:text-left">
+                    <p class="text-sm text-gray-400">You selected</p>
+                    <p class="text-2xl font-bold"><span id="plan-name"></span> &middot; <span id="plan-price" class="text-blue-500"></span></p>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                    <a id="plan-order" href="contact.html" class="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-semibold text-center transition-all">Order this package</a>
+                    <a id="plan-wa" href="#" target="_blank" rel="noopener noreferrer" class="px-8 py-4 glass-button rounded-2xl font-semibold text-center">Order on WhatsApp</a>
+                </div>
+            </div>
+            <p class="text-center text-sm text-gray-500 mt-6">Prices in USD. Need something bigger or custom? <a href="contact.html" class="text-blue-500 hover:underline">Talk to us</a>.</p>
+        </div>
+    </section>
+
+    <!-- Process Section -->
+    <section class="py-32 bg-navy">
+        <div class="max-w-6xl mx-auto px-6">
+            <div class="text-center mb-20">
+                <h2 class="text-4xl font-bold mb-4">How We Work</h2>
+                <p class="text-xl text-gray-400">A simple process from brief to delivery.</p>
+            </div>
+            <div class="grid md:grid-cols-4 gap-8">
+                <div class="glass-card p-8 rounded-3xl"><p class="text-5xl font-bold text-blue-600 mb-4">01</p><h3 class="text-xl font-bold mb-2">Brief</h3><p class="text-gray-400 text-sm leading-relaxed">You tell us your goals, audience and style. We ask the right questions.</p></div>
+                <div class="glass-card p-8 rounded-3xl"><p class="text-5xl font-bold text-blue-600 mb-4">02</p><h3 class="text-xl font-bold mb-2">Concept</h3><p class="text-gray-400 text-sm leading-relaxed">We sketch and present design directions for you to react to.</p></div>
+                <div class="glass-card p-8 rounded-3xl"><p class="text-5xl font-bold text-blue-600 mb-4">03</p><h3 class="text-xl font-bold mb-2">Refine</h3><p class="text-gray-400 text-sm leading-relaxed">Feedback rounds until every detail feels exactly right.</p></div>
+                <div class="glass-card p-8 rounded-3xl"><p class="text-5xl font-bold text-blue-600 mb-4">04</p><h3 class="text-xl font-bold mb-2">Deliver</h3><p class="text-gray-400 text-sm leading-relaxed">Final files in every format you need, ready to publish or print.</p></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quote Calculator Section -->
+    <section class="py-32 bg-navy">
+        <div class="max-w-4xl mx-auto px-6">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-bold mb-4">Get a Quote in 60 Seconds</h2>
+                <p class="text-xl text-gray-400">Select what you need — get an instant estimate.</p>
+            </div>
+            <form id="quote-calculator-form" class="glass-card p-8 md:p-12 rounded-3xl space-y-6">
+                <div class="grid sm:grid-cols-2 gap-4">
+                    <label class="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-5 py-4 cursor-pointer hover:border-blue-600 transition-colors"><input type="checkbox" name="quote-service" value="logo" data-price="25" class="w-5 h-5 accent-blue-600"><span>Logo &amp; Branding</span></label>
+                    <label class="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-5 py-4 cursor-pointer hover:border-blue-600 transition-colors"><input type="checkbox" name="quote-service" value="social" data-price="30" class="w-5 h-5 accent-blue-600"><span>Social Media Graphics</span></label>
+                    <label class="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-5 py-4 cursor-pointer hover:border-blue-600 transition-colors"><input type="checkbox" name="quote-service" value="video" data-price="60" class="w-5 h-5 accent-blue-600"><span>Video &amp; Motion</span></label>
+                    <label class="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-5 py-4 cursor-pointer hover:border-blue-600 transition-colors"><input type="checkbox" name="quote-service" value="ui" data-price="50" class="w-5 h-5 accent-blue-600"><span>App / UI Design</span></label>
+                    <label class="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-5 py-4 cursor-pointer hover:border-blue-600 transition-colors"><input type="checkbox" name="quote-service" value="print" data-price="20" class="w-5 h-5 accent-blue-600"><span>Print &amp; Packaging</span></label>
+                    <label class="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-5 py-4 cursor-pointer hover:border-blue-600 transition-colors"><input type="checkbox" name="quote-service" value="photo" data-price="15" class="w-5 h-5 accent-blue-600"><span>Photo Editing</span></label>
+                </div>
+                <input type="email" name="quote-email" placeholder="Your email (to send the full proposal)" class="w-full bg-white/5 border border-white/10 rounded-xl px-6 py-4 focus:outline-none focus:border-blue-600 transition-colors">
+                <button type="submit" class="w-full py-5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all">Calculate My Estimate</button>
+                <div id="quote-result" class="hidden bg-white/5 border border-white/10 rounded-xl p-6"></div>
+            </form>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section class="py-32 bg-navy">
+        <div class="max-w-3xl mx-auto px-6">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-bold mb-4">Frequently Asked Questions</h2>
+            </div>
+            <div class="space-y-4">
+                <div class="glass-card rounded-2xl overflow-hidden">
+                    <button class="faq-question w-full text-left px-6 py-5 flex justify-between items-center font-semibold">How long does a design project take?<span class="faq-icon text-blue-500 text-2xl leading-none transition-transform">+</span></button>
+                    <div class="faq-answer hidden px-6 pb-5 text-gray-400">Social graphics and print pieces usually take a few days. Full brand identities and video projects take 1-3 weeks depending on scope and how quickly we get feedback.</div>
+                </div>
+                <div class="glass-card rounded-2xl overflow-hidden">
+                    <button class="faq-question w-full text-left px-6 py-5 flex justify-between items-center font-semibold">What file formats will I receive?<span class="faq-icon text-blue-500 text-2xl leading-none transition-transform">+</span></button>
+                    <div class="faq-answer hidden px-6 pb-5 text-gray-400">PNG and JPG for everyday use, SVG and PDF vectors for logos and print, and MP4 for video. Editable source files are included in the Brand and Studio packs.</div>
+                </div>
+                <div class="glass-card rounded-2xl overflow-hidden">
+                    <button class="faq-question w-full text-left px-6 py-5 flex justify-between items-center font-semibold">How many revisions do I get?<span class="faq-icon text-blue-500 text-2xl leading-none transition-transform">+</span></button>
+                    <div class="faq-answer hidden px-6 pb-5 text-gray-400">Each package lists its revision rounds. Extra rounds can be added at any time, just ask.</div>
+                </div>
+                <div class="glass-card rounded-2xl overflow-hidden">
+                    <button class="faq-question w-full text-left px-6 py-5 flex justify-between items-center font-semibold">Can you match my existing brand?<span class="faq-icon text-blue-500 text-2xl leading-none transition-transform">+</span></button>
+                    <div class="faq-answer hidden px-6 pb-5 text-gray-400">Yes. Send us your logo, colours and fonts and we will design everything to fit your existing look.</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="py-32 bg-navy relative">
+        <div class="max-w-4xl mx-auto px-6 text-center">
+            <h2 class="text-4xl md:text-5xl font-bold mb-6">Ready to Make Your Brand Stand Out?</h2>
+            <p class="text-xl text-gray-400 mb-10">Let's turn your idea into visuals that work as hard as you do.</p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <button onclick="location.href='contact.html'" class="px-10 py-4 bg-blue-600 text-white hover:bg-blue-700 rounded-2xl font-semibold text-lg transition-all">Start a Design Project</button>
+                <button onclick="location.href='ai.html'" class="px-10 py-4 glass-button rounded-2xl font-semibold text-lg">Chat with Frank</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-white/10 bg-navy text-gray-400 pt-16 pb-8">
+        <!-- WhatsApp Chat Widget -->
+        <a href="https://wa.me/27602600910?text=Hi%20Frank%2C%20I%27d%20like%20to%20chat%20about%20a%20design%20project" target="_blank" rel="noopener noreferrer" id="whatsapp-widget" class="fixed bottom-6 right-6 z-50 flex items-center justify-center w-16 h-16 rounded-full shadow-lg shadow-black/40 transition-transform duration-300 hover:scale-110" style="background: rgba(37, 211, 102, 0.25); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(37, 211, 102, 0.5);" aria-label="Chat with Frank on WhatsApp">
+            <svg viewBox="0 0 32 32" class="w-8 h-8" fill="#25D366" xmlns="http://www.w3.org/2000/svg"><path d="M16.001 3C9.373 3 4 8.373 4 15c0 2.386.703 4.605 1.912 6.47L4 29l7.72-1.877A11.94 11.94 0 0016.001 27C22.628 27 28 21.627 28 15S22.628 3 16.001 3zm0 21.818c-1.98 0-3.87-.52-5.51-1.5l-.395-.234-4.583 1.114 1.126-4.462-.257-.412A9.77 9.77 0 016.182 15c0-5.415 4.404-9.818 9.819-9.818S25.818 9.585 25.818 15 21.416 24.818 16.001 24.818zm5.42-7.36c-.297-.148-1.756-.867-2.029-.966-.273-.099-.472-.148-.67.148-.198.297-.767.966-.94 1.164-.173.198-.347.223-.644.075-.297-.148-1.253-.462-2.387-1.472-.882-.787-1.478-1.76-1.651-2.057-.173-.297-.018-.457.13-.605.134-.133.297-.347.446-.52.148-.173.198-.297.297-.495.099-.198.05-.372-.025-.52-.074-.148-.67-1.614-.918-2.212-.242-.582-.487-.503-.67-.512l-.57-.01c-.198 0-.52.074-.792.372-.273.297-1.04 1.016-1.04 2.478 0 1.462 1.065 2.874 1.213 3.072.148.198 2.096 3.2 5.078 4.487.71.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.756-.718 2.004-1.412.248-.694.248-1.288.173-1.412-.074-.124-.272-.198-.57-.347z"/></svg>
+        </a>
+        <div class="max-w-6xl mx-auto px-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-10 mb-14 text-sm">
+                <div>
+                    <h4 class="text-white font-bold mb-4">Get to Know Us</h4>
+                    <ul class="space-y-3">
+                        <li><a href="team.html" class="hover:text-blue-500 transition-colors">Careers</a></li>
+                        <li><a href="team.html" class="hover:text-blue-500 transition-colors">Our Team</a></li>
+                        <li><a href="index.html" class="hover:text-blue-500 transition-colors">Welcome to ROASOD</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white font-bold mb-4">Our Divisions</h4>
+                    <ul class="space-y-3">
+                        <li><a href="games.html" class="hover:text-blue-500 transition-colors">ROASOD Games</a></li>
+                        <li><a href="ai.html" class="hover:text-blue-500 transition-colors">ROASOD AI</a></li>
+                        <li><a href="websites.html" class="hover:text-blue-500 transition-colors">ROASOD Websites</a></li>
+                        <li><a href="media.html" class="hover:text-blue-500 transition-colors">ROASOD Media</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white font-bold mb-4">Partner With Us</h4>
+                    <ul class="space-y-3">
+                        <li><a href="adverts.html" class="hover:text-blue-500 transition-colors">Advertise With Us</a></li>
+                        <li><a href="contact.html" class="hover:text-blue-500 transition-colors">Start a Project</a></li>
+                        <li><a href="socials.html" class="hover:text-blue-500 transition-colors">Follow Our Socials</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white font-bold mb-4">Let Us Help You</h4>
+                    <ul class="space-y-3">
+                        <li><a href="contact.html" class="hover:text-blue-500 transition-colors">Contact Us</a></li>
+                        <li><a href="feedback.html" class="hover:text-blue-500 transition-colors">Send Feedback</a></li>
+                        <li><a href="blog.html" class="hover:text-blue-500 transition-colors">Blog &amp; Updates</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="border-t border-white/10 pt-8 grid grid-cols-2 md:grid-cols-4 gap-8 text-sm">
+                <a href="https://roasodgames.vercel.app" class="hover:text-blue-500 transition-colors">
+                    <p class="text-white font-semibold mb-1">ROASOD Games</p>
+                    <p class="text-gray-500">Immersive worlds<br>&amp; esports</p>
+                </a>
+                <a href="ai.html" class="hover:text-blue-500 transition-colors">
+                    <p class="text-white font-semibold mb-1">ROASOD AI</p>
+                    <p class="text-gray-500">Machine learning<br>&amp; automation</p>
+                </a>
+                <a href="websites.html" class="hover:text-blue-500 transition-colors">
+                    <p class="text-white font-semibold mb-1">ROASOD Websites</p>
+                    <p class="text-gray-500">Enterprise web<br>infrastructure</p>
+                </a>
+                <a href="media.html" class="hover:text-blue-500 transition-colors">
+                    <p class="text-white font-semibold mb-1">ROASOD Media</p>
+                    <p class="text-gray-500">Graphic &amp; multimedia<br>design</p>
+                </a>
+            </div>
+
+            <div class="border-t border-white/10 mt-8 pt-6 text-center text-xs text-gray-500">
+                <div class="space-x-4 mb-3">
+                    <a href="#" class="hover:text-blue-500 transition-colors">Conditions of Use</a>
+                    <a href="#" class="hover:text-blue-500 transition-colors">Privacy Notice</a>
+                    <a href="#" class="hover:text-blue-500 transition-colors">Cookies Notice</a>
+                    <a href="#" class="hover:text-blue-500 transition-colors">Legal Notice</a>
+                </div>
+                <p>&copy; <span id="copyright-year">2026</span> ROASOD.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+    (function () {
+        // Mobile menu
+        var btn = document.getElementById('mobile-menu-button'),
+            menu = document.getElementById('mobile-menu'),
+            iOpen = document.getElementById('menu-icon-open'),
+            iClose = document.getElementById('menu-icon-close');
+        btn.addEventListener('click', function () {
+            var hidden = menu.classList.toggle('hidden');
+            iOpen.classList.toggle('hidden', !hidden);
+            iClose.classList.toggle('hidden', hidden);
+            btn.setAttribute('aria-expanded', String(!hidden));
+        });
+
+        // Package picker
+        var opts = document.querySelectorAll('#plan-group .plan-opt');
+        function sync() {
+            var sel = document.querySelector('#plan-group input:checked'); if (!sel) return;
+            var el = sel.closest('.plan-opt'), n = el.dataset.name, p = el.dataset.price, k = sel.value;
+            opts.forEach(function (o) { o.querySelector('.plan-dot span').style.transform = o === el ? 'scale(1)' : 'scale(0)'; });
+            document.getElementById('plan-name').textContent = n;
+            document.getElementById('plan-price').textContent = '$' + p;
+            document.getElementById('plan-order').href = 'contact.html?plan=' + k + '&price=' + p;
+            document.getElementById('plan-wa').href = 'https://wa.me/27602600910?text=' + encodeURIComponent("Hi, I'd like to order the " + n + " ($" + p + ") from ROASOD Media.");
+        }
+        document.getElementById('plan-group').addEventListener('change', sync); sync();
+
+        // Quote calculator
+        document.getElementById('quote-calculator-form').addEventListener('submit', function (e) {
+            e.preventDefault();
+            var boxes = this.querySelectorAll('input[name="quote-service"]:checked'), total = 0, names = [];
+            boxes.forEach(function (b) { total += Number(b.dataset.price); names.push(b.parentNode.textContent.trim()); });
+            var out = document.getElementById('quote-result');
+            out.classList.remove('hidden');
+            if (!boxes.length) { out.innerHTML = '<p class="text-gray-300">Please select at least one service.</p>'; return; }
+            out.innerHTML = '<p class="text-sm text-gray-400 mb-1">Estimated starting price</p>' +
+                '<p class="text-4xl font-bold text-blue-500 mb-3">From $' + total + '</p>' +
+                '<p class="text-sm text-gray-400 mb-4">' + names.join(' &middot; ') + '. Final price depends on scope; we will confirm in your proposal.</p>' +
+                '<a class="inline-block px-6 py-3 glass-button rounded-xl font-semibold" target="_blank" rel="noopener noreferrer" href="https://wa.me/27602600910?text=' +
+                encodeURIComponent("Hi, I'd like a quote for: " + names.join(', ') + " (estimate from $" + total + ").") + '">Send on WhatsApp</a>';
+        });
+
+        // FAQ accordion
+        document.querySelectorAll('.faq-question').forEach(function (q) {
+            q.addEventListener('click', function () {
+                var a = q.nextElementSibling, icon = q.querySelector('.faq-icon');
+                var open = a.classList.toggle('hidden') === false;
+                icon.textContent = open ? '\u2212' : '+';
+            });
+        });
+
+        // Particle background
+        var c = document.getElementById('particle-canvas'), ctx = c.getContext('2d'), pts = [];
+        function size() { c.width = c.offsetWidth; c.height = c.offsetHeight; }
+        size(); window.addEventListener('resize', size);
+        for (var i = 0; i < 60; i++) pts.push({ x: Math.random() * c.width, y: Math.random() * c.height, vx: (Math.random() - .5) * .4, vy: (Math.random() - .5) * .4 });
+        (function draw() {
+            ctx.clearRect(0, 0, c.width, c.height);
+            pts.forEach(function (p, i) {
+                p.x += p.vx; p.y += p.vy;
+                if (p.x < 0 || p.x > c.width) p.vx *= -1;
+                if (p.y < 0 || p.y > c.height) p.vy *= -1;
+                ctx.fillStyle = 'rgba(96,165,250,.6)'; ctx.beginPath(); ctx.arc(p.x, p.y, 1.6, 0, 6.283); ctx.fill();
+                for (var j = i + 1; j < pts.length; j++) {
+                    var q = pts[j], d = Math.hypot(p.x - q.x, p.y - q.y);
+                    if (d < 120) { ctx.strokeStyle = 'rgba(96,165,250,' + (0.15 * (1 - d / 120)) + ')'; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke(); }
+                }
+            });
+            requestAnimationFrame(draw);
+        })();
+
+        document.getElementById('copyright-year').textContent = new Date().getFullYear();
+    })();
+    </script>
 </body>
 </html>
